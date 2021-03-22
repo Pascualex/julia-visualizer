@@ -21,4 +21,8 @@ export class Complex {
   public module(): number {
     return Math.sqrt(this.r * this.r + this.i * this.i);
   }
+  
+  public copy(): Complex {
+    return new Complex(this.r, this.i);
+  }
 }

@@ -7,7 +7,28 @@
   </head>
   <body>
     <div id="wrapper">
+      <canvas id="p"></canvas>
       <canvas id="grid"></canvas>
+      <canvas id="axis"></canvas>
+      <div id="menu">
+        <div id="c-viewer">
+          <span>C =&nbsp;</span>
+          <span id="c-content">c-content</span>
+        </div>
+        <div id="c-button">Seleccionar nuevo C</div>
+        <div id="p-viewer">
+          <span>P =&nbsp;</span>
+          <span id="p-content">p-content</span>
+        </div>
+        <div id="p-button">Seleccionar nuevo P</div>
+        <div id="iter-viewer">
+          <span>Iteraciones =&nbsp;</span>
+          <span id="iter-content">iter-content</span>
+        </div>
+        <div>
+          <input type="range" min="1" max="150" value="30" id="iter-slider">
+        </div>
+      </div>
     </div>
   </body>
 </html>

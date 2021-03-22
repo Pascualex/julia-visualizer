@@ -6,22 +6,46 @@ var Complex_1 = require("../utils/Complex");
 var GridModel_1 = require("./GridModel");
 var GridView_1 = require("./GridView");
 var Grid = /** @class */ (function () {
-    function Grid(htmlCanvas) {
+    function Grid(fractalCanvas, axisCanvas, pCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider) {
         this.gridModel = new GridModel_1.GridModel();
-        this.gridView = new GridView_1.GridView(htmlCanvas, this.gridModel);
+        this.gridView = new GridView_1.GridView(fractalCanvas, axisCanvas, pCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, this.gridModel);
         this.setupEvents();
         this.gridModel.c = new Complex_1.Complex(0, -0.6);
-        this.gridView.draw();
+        this.gridView.updateC();
+        this.gridView.updateP();
+        this.gridView.updateIter();
+        this.gridView.drawJuliaSet();
+        this.gridView.drawP();
     }
     Grid.prototype.setupEvents = function () {
         var _this = this;
         this.gridView.oncselected = function (c) {
-            _this.handleOnCSelected(c);
+            _this.handleOnCSelectedEvent(c);
+        };
+        this.gridView.onpselected = function (p) {
+            _this.handleOnPSelectedEvent(p);
+        };
+        this.gridView.oniterselected = function (iter) {
+            _this.handleOnIterSelectedEvent(iter);
         };
     };
-    Grid.prototype.handleOnCSelected = function (c) {
+    Grid.prototype.handleOnCSelectedEvent = function (c) {
         this.gridModel.c = c;
-        this.gridView.draw();
+        this.gridView.updateC();
+        this.gridView.drawJuliaSet();
+        this.gridModel.p = new Complex_1.Complex(0, 0);
+        this.gridView.drawP();
+    };
+    Grid.prototype.handleOnPSelectedEvent = function (p) {
+        this.gridModel.p = p;
+        this.gridView.updateP();
+        this.gridView.drawP();
+    };
+    Grid.prototype.handleOnIterSelectedEvent = function (iter) {
+        this.gridModel.iter = iter;
+        this.gridView.updateIter();
+        this.gridView.drawJuliaSet();
+        this.gridView.drawP();
     };
     return Grid;
 }());
@@ -35,6 +59,8 @@ var Complex_1 = require("../utils/Complex");
 var GridModel = /** @class */ (function () {
     function GridModel() {
         this.c = new Complex_1.Complex(0, 0);
+        this.p = new Complex_1.Complex(0, 0);
+        this.iter = 30;
     }
     return GridModel;
 }());
@@ -45,67 +71,172 @@ exports.GridModel = GridModel;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GridView = void 0;
 var Complex_1 = require("../utils/Complex");
+var Mode_1 = require("../utils/Mode");
 var GridView = /** @class */ (function () {
-    function GridView(htmlCanvas, gridModel) {
-        this.maxIterations = 30;
+    function GridView(fractalCanvas, axisCanvas, pCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, gridModel) {
         this.escapeRadius = 3;
-        this.imaginaryAxisHeight = 3;
-        this.htmlCanvas = htmlCanvas;
-        this.canvas = htmlCanvas.getContext('2d');
+        this.imaginaryAxisHeight = 1.5;
+        this.fractalCanvas = fractalCanvas.getContext("2d");
+        this.axisCanvas = axisCanvas.getContext("2d");
+        this.pCanvas = pCanvas.getContext("2d");
+        this.cContent = cContent;
+        this.cButton = cButton;
+        this.pContent = pContent;
+        this.pButton = pButton;
+        this.iterContent = iterContent;
+        this.iterSlider = iterSlider;
         this.gridModel = gridModel;
-        this.width = this.htmlCanvas.width;
-        this.height = this.htmlCanvas.height;
+        this.width = fractalCanvas.width;
+        this.height = fractalCanvas.height;
         this.centerX = Math.floor(this.width / 2);
         this.centerY = Math.floor(this.height / 2);
-        this.scale = this.imaginaryAxisHeight / this.height;
-        this.updateOnMove = false;
+        this.scale = (2 * this.imaginaryAxisHeight) / this.height;
+        this.mode = Mode_1.Mode.None;
         this.oncselected = null;
-        this.setupEvents(htmlCanvas);
+        this.onpselected = null;
+        this.oniterselected = null;
+        this.setupEvents(fractalCanvas);
+        this.drawAxis();
+        this.updateIter();
     }
-    GridView.prototype.setupEvents = function (htmlCanvas) {
+    GridView.prototype.setupEvents = function (fractalCanvas) {
         var _this = this;
-        htmlCanvas.onmousedown = function (event) {
+        fractalCanvas.onmousedown = function (event) {
             _this.handleOnMouseDownEvent(event);
         };
-        htmlCanvas.onmousemove = function (event) {
+        fractalCanvas.onmousemove = function (event) {
             _this.handleOnMouseMoveEvent(event);
+        };
+        this.cButton.onclick = function (event) {
+            _this.handleOnCButtonClickEvent(event);
+        };
+        this.pButton.onclick = function (event) {
+            _this.handleOnPButtonClickEvent(event);
+        };
+        this.iterSlider.oninput = function () {
+            _this.handleOnIterChangeEvent();
         };
     };
     GridView.prototype.handleOnMouseDownEvent = function (event) {
-        this.updateOnMove = !this.updateOnMove;
-        this.handleOnMouseMoveEvent(event);
+        this.mode = Mode_1.Mode.None;
     };
     GridView.prototype.handleOnMouseMoveEvent = function (event) {
-        if (this.updateOnMove)
-            this.triggerOnCSelected(event);
+        if (this.mode == Mode_1.Mode.C)
+            this.triggerOnCSelectedEvent(event);
+        else if (this.mode == Mode_1.Mode.P)
+            this.triggerOnPSelectedEvent(event);
     };
-    GridView.prototype.triggerOnCSelected = function (event) {
+    GridView.prototype.handleOnCButtonClickEvent = function (event) {
+        this.mode = Mode_1.Mode.C;
+    };
+    GridView.prototype.handleOnPButtonClickEvent = function (event) {
+        this.mode = Mode_1.Mode.P;
+    };
+    GridView.prototype.handleOnIterChangeEvent = function () {
+        this.triggerOnIterSelectedEvent();
+    };
+    GridView.prototype.triggerOnCSelectedEvent = function (event) {
         if (this.oncselected == null)
             return;
         var c = this.pixelToComplex(event.x, event.y);
         this.oncselected(c);
     };
-    GridView.prototype.draw = function () {
-        var _a;
-        (_a = this.canvas) === null || _a === void 0 ? void 0 : _a.clearRect(0, 0, this.width, this.height);
-        this.drawJuliaSet();
-        this.drawAxis();
+    GridView.prototype.triggerOnPSelectedEvent = function (event) {
+        if (this.onpselected == null)
+            return;
+        var p = this.pixelToComplex(event.x, event.y);
+        this.onpselected(p);
+    };
+    GridView.prototype.triggerOnIterSelectedEvent = function () {
+        if (this.oniterselected == null)
+            return;
+        var iter = Math.round(parseFloat(this.iterSlider.value));
+        this.oniterselected(iter);
+    };
+    GridView.prototype.updateC = function () {
+        var c = this.gridModel.c;
+        var i = c.i;
+        var s = i < 0 ? " - " : " + ";
+        i = Math.abs(i);
+        this.cContent.textContent = c.r.toFixed(4) + s + i.toFixed(4) + "i";
+    };
+    GridView.prototype.updateP = function () {
+        var p = this.gridModel.p;
+        var i = p.i;
+        var s = i < 0 ? " - " : " + ";
+        i = Math.abs(i);
+        this.pContent.textContent = p.r.toFixed(4) + s + i.toFixed(4) + "i";
+    };
+    GridView.prototype.updateIter = function () {
+        this.iterContent.textContent = this.gridModel.iter.toString();
     };
     GridView.prototype.drawAxis = function () {
-        if (this.canvas == null)
+        if (this.axisCanvas == null)
             return;
-        this.canvas.fillStyle = "#000000";
-        this.canvas.beginPath();
-        this.canvas.moveTo(this.centerX, 0);
-        this.canvas.lineTo(this.centerX, this.height);
-        this.canvas.moveTo(0, this.centerY);
-        this.canvas.lineTo(this.width, this.centerY);
-        this.canvas.stroke();
+        this.axisCanvas.clearRect(0, 0, this.width, this.height);
+        var verticalLines = Math.floor(this.width * this.scale / 2);
+        this.axisCanvas.strokeStyle = "#5990b5";
+        this.axisCanvas.beginPath();
+        for (var i = 0; i < verticalLines; i++) {
+            var posX = (i + 1) / this.scale;
+            this.axisCanvas.moveTo(this.centerX + posX, 0);
+            this.axisCanvas.lineTo(this.centerX + posX, this.height);
+            this.axisCanvas.moveTo(this.centerX - posX, 0);
+            this.axisCanvas.lineTo(this.centerX - posX, this.height);
+        }
+        this.axisCanvas.stroke();
+        var verticalMiniLines = Math.floor(this.width * this.scale * 10 / 2);
+        this.axisCanvas.strokeStyle = "#95caed";
+        this.axisCanvas.beginPath();
+        for (var i = 0; i < verticalMiniLines; i++) {
+            if ((i + 1) % 10 == 0)
+                continue;
+            var posX = (i + 1) / this.scale / 10;
+            this.axisCanvas.moveTo(this.centerX + posX, 0);
+            this.axisCanvas.lineTo(this.centerX + posX, this.height);
+            this.axisCanvas.moveTo(this.centerX - posX, 0);
+            this.axisCanvas.lineTo(this.centerX - posX, this.height);
+        }
+        this.axisCanvas.stroke();
+        var horizontalLines = Math.floor(this.imaginaryAxisHeight);
+        this.axisCanvas.strokeStyle = "#5990b5";
+        this.axisCanvas.beginPath();
+        for (var i = 0; i < horizontalLines; i++) {
+            var posY = (i + 1) / this.scale;
+            this.axisCanvas.moveTo(0, this.centerY + posY);
+            this.axisCanvas.lineTo(this.width, this.centerY + posY);
+            this.axisCanvas.moveTo(0, this.centerY - posY);
+            this.axisCanvas.lineTo(this.width, this.centerY - posY);
+        }
+        this.axisCanvas.stroke();
+        var horizontalMiniLines = Math.floor(this.imaginaryAxisHeight * 10);
+        this.axisCanvas.strokeStyle = "#95caed";
+        this.axisCanvas.beginPath();
+        for (var i = 0; i < horizontalMiniLines; i++) {
+            if ((i + 1) % 10 == 0)
+                continue;
+            var posY = (i + 1) / this.scale / 10;
+            this.axisCanvas.moveTo(0, this.centerY + posY);
+            this.axisCanvas.lineTo(this.width, this.centerY + posY);
+            this.axisCanvas.moveTo(0, this.centerY - posY);
+            this.axisCanvas.lineTo(this.width, this.centerY - posY);
+        }
+        this.axisCanvas.stroke();
+        this.axisCanvas.strokeStyle = "#0b273b";
+        this.axisCanvas.lineWidth = 2;
+        this.axisCanvas.beginPath();
+        this.axisCanvas.moveTo(this.centerX, 0);
+        this.axisCanvas.lineTo(this.centerX, this.height);
+        this.axisCanvas.moveTo(0, this.centerY);
+        this.axisCanvas.lineTo(this.width, this.centerY);
+        this.axisCanvas.stroke();
+        this.axisCanvas.lineWidth = 1;
     };
     GridView.prototype.drawJuliaSet = function () {
-        if (this.canvas == null)
+        if (this.fractalCanvas == null)
             return;
-        var imageData = this.canvas.createImageData(this.width, this.height);
+        this.fractalCanvas.clearRect(0, 0, this.width, this.height);
+        var imageData = this.fractalCanvas.createImageData(this.width, this.height);
         var buf = new ArrayBuffer(imageData.data.length);
         var buf8 = new Uint8ClampedArray(buf);
         for (var i = 0; i < this.height; i++) {
@@ -117,13 +248,52 @@ var GridView = /** @class */ (function () {
             }
         }
         imageData.data.set(buf8);
-        this.canvas.putImageData(imageData, 0, 0);
+        this.fractalCanvas.putImageData(imageData, 0, 0);
+        var x = this.centerX + Math.floor(this.gridModel.c.r / this.scale);
+        var y = this.centerY - Math.floor(this.gridModel.c.i / this.scale);
+        var radius = 5;
+        this.fractalCanvas.beginPath();
+        this.fractalCanvas.arc(x, y, radius, 0, 2 * Math.PI, false);
+        this.fractalCanvas.fillStyle = 'red';
+        this.fractalCanvas.strokeStyle = 'red';
+        this.fractalCanvas.fill();
+        this.fractalCanvas.stroke();
+    };
+    GridView.prototype.drawP = function () {
+        if (this.pCanvas == null)
+            return;
+        this.pCanvas.clearRect(0, 0, this.width, this.height);
+        var p = this.gridModel.p.copy();
+        if (p.r == 0 && p.i == 0)
+            return;
+        for (var i = 0; i < this.gridModel.iter; i++) {
+            if (i > 0) {
+                p.square();
+                p.add(this.gridModel.c);
+            }
+            var x = this.centerX + Math.floor(p.r / this.scale);
+            var y = this.centerY - Math.floor(p.i / this.scale);
+            var radius = i == 0 ? 5 : 1.5;
+            if (i > 0) {
+                this.pCanvas.lineTo(x, y);
+                this.pCanvas.stroke();
+            }
+            this.pCanvas.beginPath();
+            this.pCanvas.arc(x, y, radius, 0, 2 * Math.PI, false);
+            this.pCanvas.fillStyle = "#ff19fb";
+            this.pCanvas.strokeStyle = "#ff19fb";
+            this.pCanvas.fill();
+            this.pCanvas.stroke();
+            this.pCanvas.strokeStyle = "#ff19fb";
+            if (i < this.gridModel.iter - 1)
+                this.pCanvas.moveTo(x, y);
+        }
     };
     GridView.prototype.pixelToComplex = function (x, y) {
-        return new Complex_1.Complex((x - this.centerX) * this.scale, (y - this.centerY) * this.scale);
+        return new Complex_1.Complex((x - this.centerX) * this.scale, -(y - this.centerY) * this.scale);
     };
     GridView.prototype.converges = function (point) {
-        for (var i = 0; i < this.maxIterations; i++) {
+        for (var i = 0; i < this.gridModel.iter; i++) {
             point.square();
             point.add(this.gridModel.c);
             if (point.module() > this.escapeRadius)
@@ -135,28 +305,61 @@ var GridView = /** @class */ (function () {
 }());
 exports.GridView = GridView;
 
-},{"../utils/Complex":5}],4:[function(require,module,exports){
+},{"../utils/Complex":5,"../utils/Mode":6}],4:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var Grid_1 = require("./grid/Grid");
 var grid;
-var htmlGrid;
+var fractalCanvas;
+var axisCanvas;
+var pCanvas;
+var cContent;
+var cButton;
+var pContent;
+var pButton;
+var iterContent;
+var iterSlider;
 window.onload = function () {
     setupHtmlElements();
     createGrid();
 };
 function setupHtmlElements() {
-    htmlGrid = document.getElementById('grid');
+    fractalCanvas = document.getElementById("grid");
+    axisCanvas = document.getElementById("axis");
+    pCanvas = document.getElementById("p");
+    cContent = document.getElementById("c-content");
+    cButton = document.getElementById("c-button");
+    pContent = document.getElementById("p-content");
+    pButton = document.getElementById("p-button");
+    iterContent = document.getElementById("iter-content");
+    iterSlider = document.getElementById("iter-slider");
 }
 function createGrid() {
-    if (htmlGrid instanceof HTMLCanvasElement) {
-        htmlGrid.width = window.innerWidth;
-        htmlGrid.height = window.innerHeight;
-        grid = new Grid_1.Grid(htmlGrid);
-    }
-    else {
-        grid = null;
-    }
+    if (!(fractalCanvas instanceof HTMLCanvasElement))
+        return;
+    if (!(axisCanvas instanceof HTMLCanvasElement))
+        return;
+    if (!(pCanvas instanceof HTMLCanvasElement))
+        return;
+    if (!(cContent instanceof HTMLSpanElement))
+        return;
+    if (!(pContent instanceof HTMLSpanElement))
+        return;
+    if (!(iterContent instanceof HTMLSpanElement))
+        return;
+    if (!(iterSlider instanceof HTMLInputElement))
+        return;
+    if (cButton == null)
+        return;
+    if (pButton == null)
+        return;
+    fractalCanvas.width = window.innerWidth;
+    fractalCanvas.height = window.innerHeight;
+    axisCanvas.width = window.innerWidth;
+    axisCanvas.height = window.innerHeight;
+    pCanvas.width = window.innerWidth;
+    pCanvas.height = window.innerHeight;
+    grid = new Grid_1.Grid(fractalCanvas, axisCanvas, pCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider);
 }
 
 },{"./grid/Grid":1}],5:[function(require,module,exports){
@@ -180,8 +383,22 @@ var Complex = /** @class */ (function () {
     Complex.prototype.module = function () {
         return Math.sqrt(this.r * this.r + this.i * this.i);
     };
+    Complex.prototype.copy = function () {
+        return new Complex(this.r, this.i);
+    };
     return Complex;
 }());
 exports.Complex = Complex;
+
+},{}],6:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Mode = void 0;
+var Mode;
+(function (Mode) {
+    Mode[Mode["None"] = 0] = "None";
+    Mode[Mode["C"] = 1] = "C";
+    Mode[Mode["P"] = 2] = "P";
+})(Mode = exports.Mode || (exports.Mode = {}));
 
 },{}]},{},[4]);

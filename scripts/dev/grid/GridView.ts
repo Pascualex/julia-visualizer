@@ -1,13 +1,20 @@
 import { GridModel } from "./GridModel";
 import { Complex } from "../utils/Complex";
+import { Mode } from "../utils/Mode";
 
 export class GridView {
-  private maxIterations: number = 30;
   private escapeRadius: number = 3;
-  private imaginaryAxisHeight: number = 3;
+  private imaginaryAxisHeight: number = 1.5;
 
-  private htmlCanvas: HTMLCanvasElement;
-  private canvas: CanvasRenderingContext2D | null;
+  private fractalCanvas: CanvasRenderingContext2D | null;
+  private axisCanvas: CanvasRenderingContext2D | null;
+  private pCanvas: CanvasRenderingContext2D | null;
+  private cContent: HTMLSpanElement;
+  private cButton: HTMLElement;
+  private pContent: HTMLSpanElement;
+  private pButton: HTMLElement;
+  private iterContent: HTMLSpanElement;
+  private iterSlider: HTMLInputElement;
   private gridModel: GridModel;
 
   private width: number;
@@ -16,74 +23,204 @@ export class GridView {
   private centerY: number;
   private scale: number;
 
-  private updateOnMove: boolean;
+  private mode: Mode;
 
   public oncselected: ((c: Complex) => any) | null;
+  public onpselected: ((p: Complex) => any) | null;
+  public oniterselected: ((iter: number) => any) | null;
 
-  constructor(htmlCanvas: HTMLCanvasElement, gridModel: GridModel) {
-    this.htmlCanvas = htmlCanvas;
-    this.canvas = htmlCanvas.getContext('2d');
+  constructor(
+    fractalCanvas: HTMLCanvasElement,
+    axisCanvas: HTMLCanvasElement,
+    pCanvas: HTMLCanvasElement,
+    cContent: HTMLSpanElement,
+    cButton: HTMLElement,
+    pContent: HTMLSpanElement,
+    pButton: HTMLElement,
+    iterContent: HTMLSpanElement,
+    iterSlider: HTMLInputElement,
+    gridModel: GridModel,
+  ) {
+    this.fractalCanvas = fractalCanvas.getContext("2d");
+    this.axisCanvas = axisCanvas.getContext("2d");
+    this.pCanvas = pCanvas.getContext("2d");
+    this.cContent = cContent;
+    this.cButton = cButton;
+    this.pContent = pContent;
+    this.pButton = pButton;
+    this.iterContent = iterContent;
+    this.iterSlider = iterSlider;
     this.gridModel = gridModel;
 
-    this.width = this.htmlCanvas.width;
-    this.height = this.htmlCanvas.height;
+    this.width = fractalCanvas.width;
+    this.height = fractalCanvas.height;
     this.centerX = Math.floor(this.width / 2);
     this.centerY = Math.floor(this.height / 2);
-    this.scale = this.imaginaryAxisHeight / this.height;
+    this.scale = (2 * this.imaginaryAxisHeight) / this.height;
 
-    this.updateOnMove = false;
+    this.mode = Mode.None;
 
     this.oncselected = null;
-    this.setupEvents(htmlCanvas);
+    this.onpselected = null;
+    this.oniterselected = null;
+    this.setupEvents(fractalCanvas);
+
+    this.drawAxis();
+    this.updateIter();
   }
 
-  private setupEvents(htmlCanvas: HTMLCanvasElement): void {
-    htmlCanvas.onmousedown = (event: MouseEvent) => {
+  private setupEvents(fractalCanvas: HTMLCanvasElement): void {
+    fractalCanvas.onmousedown = (event: MouseEvent) => {
       this.handleOnMouseDownEvent(event);
     };
-    htmlCanvas.onmousemove = (event: MouseEvent) => {
+    fractalCanvas.onmousemove = (event: MouseEvent) => {
       this.handleOnMouseMoveEvent(event);
+    };
+    this.cButton.onclick = (event: MouseEvent) => {
+      this.handleOnCButtonClickEvent(event);
+    };
+    this.pButton.onclick = (event: MouseEvent) => {
+      this.handleOnPButtonClickEvent(event);
+    };
+    this.iterSlider.oninput = () => {
+      this.handleOnIterChangeEvent();
     };
   }
 
   private handleOnMouseDownEvent(event: MouseEvent): void {
-    this.updateOnMove = !this.updateOnMove;
-    this.handleOnMouseMoveEvent(event);
+    this.mode = Mode.None;
   }
 
   private handleOnMouseMoveEvent(event: MouseEvent): void {
-    if (this.updateOnMove) this.triggerOnCSelected(event);
+    if (this.mode == Mode.C) this.triggerOnCSelectedEvent(event);
+    else if (this.mode == Mode.P) this.triggerOnPSelectedEvent(event);
   }
 
-  private triggerOnCSelected(event: MouseEvent): void {
+  private handleOnCButtonClickEvent(event: MouseEvent): void {
+    this.mode = Mode.C;
+  }
+
+  private handleOnPButtonClickEvent(event: MouseEvent): void {
+    this.mode = Mode.P;
+  }
+  
+  private handleOnIterChangeEvent(): void {
+    this.triggerOnIterSelectedEvent();
+  }
+
+  private triggerOnCSelectedEvent(event: MouseEvent): void {
     if (this.oncselected == null) return;
 
     const c: Complex = this.pixelToComplex(event.x, event.y);
     this.oncselected(c);
   }
 
-  public draw(): void {
-    this.canvas?.clearRect(0, 0, this.width, this.height);
-    this.drawJuliaSet();
-    this.drawAxis();
+  private triggerOnPSelectedEvent(event: MouseEvent): void {
+    if (this.onpselected == null) return;
+
+    const p: Complex = this.pixelToComplex(event.x, event.y);
+    this.onpselected(p);
+  }
+  
+  private triggerOnIterSelectedEvent(): void {
+    if (this.oniterselected == null) return;
+    
+    const iter = Math.round(parseFloat(this.iterSlider.value));
+    this.oniterselected(iter);
+  }
+
+  public updateC(): void {
+    const c: Complex = this.gridModel.c;
+    let i: number = c.i;
+    const s: string = i < 0 ? " - " : " + ";
+    i = Math.abs(i);
+    this.cContent.textContent = c.r.toFixed(4) + s + i.toFixed(4) + "i";
+  }
+
+  public updateP(): void {
+    const p: Complex = this.gridModel.p;
+    let i: number = p.i;
+    const s: string = i < 0 ? " - " : " + ";
+    i = Math.abs(i);
+    this.pContent.textContent = p.r.toFixed(4) + s + i.toFixed(4) + "i";
+  }
+
+  public updateIter(): void {
+    this.iterContent.textContent = this.gridModel.iter.toString();
   }
 
   private drawAxis(): void {
-    if (this.canvas == null) return;
+    if (this.axisCanvas == null) return;
 
-    this.canvas.fillStyle = "#000000";
-    this.canvas.beginPath();
-    this.canvas.moveTo(this.centerX, 0);
-    this.canvas.lineTo(this.centerX, this.height);
-    this.canvas.moveTo(0, this.centerY);
-    this.canvas.lineTo(this.width, this.centerY);
-    this.canvas.stroke();
+    this.axisCanvas.clearRect(0, 0, this.width, this.height);
+
+    const verticalLines: number = Math.floor(this.width * this.scale / 2);
+    this.axisCanvas.strokeStyle = "#5990b5";
+    this.axisCanvas.beginPath();
+    for (let i = 0; i < verticalLines; i++) {
+      const posX: number = (i + 1) / this.scale;
+      this.axisCanvas.moveTo(this.centerX + posX, 0);
+      this.axisCanvas.lineTo(this.centerX + posX, this.height);
+      this.axisCanvas.moveTo(this.centerX - posX, 0);
+      this.axisCanvas.lineTo(this.centerX - posX, this.height);
+    }
+    this.axisCanvas.stroke();
+
+    const verticalMiniLines: number = Math.floor(this.width * this.scale * 10 / 2);
+    this.axisCanvas.strokeStyle = "#95caed";
+    this.axisCanvas.beginPath();
+    for (let i = 0; i < verticalMiniLines; i++) {
+      if ((i + 1) % 10 == 0) continue;
+      const posX: number = (i + 1) / this.scale / 10;
+      this.axisCanvas.moveTo(this.centerX + posX, 0);
+      this.axisCanvas.lineTo(this.centerX + posX, this.height);
+      this.axisCanvas.moveTo(this.centerX - posX, 0);
+      this.axisCanvas.lineTo(this.centerX - posX, this.height);
+    }
+    this.axisCanvas.stroke();
+
+    const horizontalLines: number = Math.floor(this.imaginaryAxisHeight);
+    this.axisCanvas.strokeStyle = "#5990b5";
+    this.axisCanvas.beginPath();
+    for (let i = 0; i < horizontalLines; i++) {
+      const posY: number = (i + 1) / this.scale;
+      this.axisCanvas.moveTo(0, this.centerY + posY);
+      this.axisCanvas.lineTo(this.width, this.centerY + posY);
+      this.axisCanvas.moveTo(0, this.centerY - posY);
+      this.axisCanvas.lineTo(this.width, this.centerY - posY);
+    }
+    this.axisCanvas.stroke();
+
+    const horizontalMiniLines: number = Math.floor(this.imaginaryAxisHeight * 10);
+    this.axisCanvas.strokeStyle = "#95caed";
+    this.axisCanvas.beginPath();
+    for (let i = 0; i < horizontalMiniLines; i++) {
+      if ((i + 1) % 10 == 0) continue;
+      const posY: number = (i + 1) / this.scale / 10;
+      this.axisCanvas.moveTo(0, this.centerY + posY);
+      this.axisCanvas.lineTo(this.width, this.centerY + posY);
+      this.axisCanvas.moveTo(0, this.centerY - posY);
+      this.axisCanvas.lineTo(this.width, this.centerY - posY);
+    }
+    this.axisCanvas.stroke();
+
+    this.axisCanvas.strokeStyle = "#0b273b";
+    this.axisCanvas.lineWidth = 2;
+    this.axisCanvas.beginPath();
+    this.axisCanvas.moveTo(this.centerX, 0);
+    this.axisCanvas.lineTo(this.centerX, this.height);
+    this.axisCanvas.moveTo(0, this.centerY);
+    this.axisCanvas.lineTo(this.width, this.centerY);
+    this.axisCanvas.stroke();
+    this.axisCanvas.lineWidth = 1;
   }
 
-  private drawJuliaSet(): void {
-    if (this.canvas == null) return;
+  public drawJuliaSet(): void {
+    if (this.fractalCanvas == null) return;
 
-    const imageData = this.canvas.createImageData(this.width, this.height);
+    this.fractalCanvas.clearRect(0, 0, this.width, this.height);
+
+    const imageData = this.fractalCanvas.createImageData(this.width, this.height);
     const buf = new ArrayBuffer(imageData.data.length);
     const buf8 = new Uint8ClampedArray(buf);
 
@@ -91,21 +228,67 @@ export class GridView {
       for (let j = 0; j < this.width; j++) {
         const point: Complex = this.pixelToComplex(j, i);
         if (this.converges(point)) {
-          buf8[(i * this.width + j)*4+3] = 255;
+          buf8[(i * this.width + j) * 4 + 3] = 255;
         }
       }
     }
 
     imageData.data.set(buf8);
-    this.canvas.putImageData(imageData, 0, 0);
+    this.fractalCanvas.putImageData(imageData, 0, 0);
+
+    const x: number = this.centerX + Math.floor(this.gridModel.c.r / this.scale);
+    const y: number = this.centerY - Math.floor(this.gridModel.c.i / this.scale);
+    const radius: number = 5;
+
+    this.fractalCanvas.beginPath();
+    this.fractalCanvas.arc(x, y, radius, 0, 2 * Math.PI, false);
+    this.fractalCanvas.fillStyle = 'red';
+    this.fractalCanvas.strokeStyle = 'red';
+    this.fractalCanvas.fill();
+    this.fractalCanvas.stroke();
+  }
+
+  public drawP(): void {
+    if (this.pCanvas == null) return;
+
+    this.pCanvas.clearRect(0, 0, this.width, this.height);
+    let p: Complex = this.gridModel.p.copy();
+
+    if (p.r == 0 && p.i == 0) return;
+
+    for (let i = 0; i < this.gridModel.iter; i++) {
+      if (i > 0) {
+        p.square();
+        p.add(this.gridModel.c);
+      }
+
+      const x: number = this.centerX + Math.floor(p.r / this.scale);
+      const y: number = this.centerY - Math.floor(p.i / this.scale);
+      const radius: number = i == 0 ? 5 : 1.5;
+
+      if (i > 0) {
+        this.pCanvas.lineTo(x, y);
+        this.pCanvas.stroke();
+      }
+
+      this.pCanvas.beginPath();
+      this.pCanvas.arc(x, y, radius, 0, 2 * Math.PI, false);
+      this.pCanvas.fillStyle = "#ff19fb";
+      this.pCanvas.strokeStyle = "#ff19fb";
+      this.pCanvas.fill();
+      this.pCanvas.stroke();
+
+      this.pCanvas.strokeStyle = "#ff19fb";
+      if (i < this.gridModel.iter - 1) this.pCanvas.moveTo(x, y);
+    }
   }
 
   private pixelToComplex(x: number, y: number): Complex {
-    return new Complex((x - this.centerX) * this.scale, (y - this.centerY) * this.scale);
+    return new Complex((x - this.centerX) * this.scale, -(y - this.centerY) * this.scale);
   }
 
   private converges(point: Complex): boolean {
-    for (let i = 0; i < this.maxIterations; i++) {
+    for (let i = 0; i < this.gridModel.iter; i++) {
       point.square();
       point.add(this.gridModel.c);
 
