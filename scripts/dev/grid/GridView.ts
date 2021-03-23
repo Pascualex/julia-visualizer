@@ -288,11 +288,20 @@ export class GridView {
   }
 
   private converges(point: Complex): boolean {
-    for (let i = 0; i < this.gridModel.iter; i++) {
-      point.square();
-      point.add(this.gridModel.c);
+    const cx: number = this.gridModel.c.r;
+    const cy: number = this.gridModel.c.i;
+    const escapeRadiusSquare: number = this.escapeRadius * this.escapeRadius;
 
-      if (point.module() > this.escapeRadius) return false;
+    let x: number = point.r;
+    let y: number = point.i;
+    let xTmp: number = 0;
+
+    for (let i = 0; i < this.gridModel.iter; i++) {
+      xTmp = x * x - y * y + cx;
+      y = (x + x) * y + cy;
+      x = xTmp;
+
+      if ((x * x + y * y) > escapeRadiusSquare) return false;
     }
 
     return true;

@@ -293,10 +293,17 @@ var GridView = /** @class */ (function () {
         return new Complex_1.Complex((x - this.centerX) * this.scale, -(y - this.centerY) * this.scale);
     };
     GridView.prototype.converges = function (point) {
+        var cx = this.gridModel.c.r;
+        var cy = this.gridModel.c.i;
+        var escapeRadiusSquare = this.escapeRadius * this.escapeRadius;
+        var x = point.r;
+        var y = point.i;
+        var xTmp = 0;
         for (var i = 0; i < this.gridModel.iter; i++) {
-            point.square();
-            point.add(this.gridModel.c);
-            if (point.module() > this.escapeRadius)
+            xTmp = x * x - y * y + cx;
+            y = (x + x) * y + cy;
+            x = xTmp;
+            if ((x * x + y * y) > escapeRadiusSquare)
                 return false;
         }
         return true;
