@@ -41,21 +41,28 @@ select {
 #p {
   position: absolute;
   touch-action: none;
-  z-index: 2;
-  pointer-events:none;
+  z-index: 3;
+  pointer-events: none;
 }
 
 #grid {
   position: absolute;
   touch-action: none;
-  z-index: 1;
+  z-index: 2;
 }
 
 #axis {
   position: absolute;
   touch-action: none;
+  z-index: 1;
+  pointer-events: none;
+}
+
+#mandelbrot {
+  position: absolute;
+  touch-action: none;
   z-index: 0;
-  pointer-events:none;
+  pointer-events: none;
 }
 
 #menu {
@@ -79,11 +86,16 @@ select {
   font-size: 14pt;
 }
 
-#c-button, #p-button {
+#c-button, #p-button, #mandelbrot-button {
   background-color: #60bd60;
   color: white;
   cursor: pointer;
   user-select: none;
+}
+
+.my-sub {
+  font-size: smaller;
+  transform: translateY(4px);
 }
 
 #iter-slider {

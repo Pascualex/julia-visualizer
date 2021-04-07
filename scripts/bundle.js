@@ -6,9 +6,9 @@ var Complex_1 = require("../utils/Complex");
 var GridModel_1 = require("./GridModel");
 var GridView_1 = require("./GridView");
 var Grid = /** @class */ (function () {
-    function Grid(fractalCanvas, axisCanvas, pCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider) {
+    function Grid(fractalCanvas, axisCanvas, pCanvas, mandelbrotCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, mandelbrotButton) {
         this.gridModel = new GridModel_1.GridModel();
-        this.gridView = new GridView_1.GridView(fractalCanvas, axisCanvas, pCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, this.gridModel);
+        this.gridView = new GridView_1.GridView(fractalCanvas, axisCanvas, pCanvas, mandelbrotCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, mandelbrotButton, this.gridModel);
         this.setupEvents();
         this.gridModel.c = new Complex_1.Complex(0, -0.6);
         this.gridView.updateC();
@@ -73,12 +73,14 @@ exports.GridView = void 0;
 var Complex_1 = require("../utils/Complex");
 var Mode_1 = require("../utils/Mode");
 var GridView = /** @class */ (function () {
-    function GridView(fractalCanvas, axisCanvas, pCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, gridModel) {
+    function GridView(fractalCanvas, axisCanvas, pCanvas, mandelbrotCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, mandelbrotButton, gridModel) {
         this.escapeRadius = 3;
         this.imaginaryAxisHeight = 1.5;
         this.fractalCanvas = fractalCanvas.getContext("2d");
         this.axisCanvas = axisCanvas.getContext("2d");
         this.pCanvas = pCanvas.getContext("2d");
+        this.mandelbrotCanvasWrapper = mandelbrotCanvas;
+        this.mandelbrotCanvas = mandelbrotCanvas.getContext("2d");
         this.cContent = cContent;
         this.cButton = cButton;
         this.pContent = pContent;
@@ -86,6 +88,7 @@ var GridView = /** @class */ (function () {
         this.iterContent = iterContent;
         this.iterSlider = iterSlider;
         this.gridModel = gridModel;
+        this.mandelbrotButton = mandelbrotButton;
         this.width = fractalCanvas.width;
         this.height = fractalCanvas.height;
         this.centerX = Math.floor(this.width / 2);
@@ -96,7 +99,10 @@ var GridView = /** @class */ (function () {
         this.onpselected = null;
         this.oniterselected = null;
         this.setupEvents(fractalCanvas);
+        this.showMandelbrot = false;
+        this.updateMandelbrotVisibility();
         this.drawAxis();
+        this.drawMandelbrot();
         this.updateIter();
     }
     GridView.prototype.setupEvents = function (fractalCanvas) {
@@ -116,6 +122,9 @@ var GridView = /** @class */ (function () {
         this.iterSlider.oninput = function () {
             _this.handleOnIterChangeEvent();
         };
+        this.mandelbrotButton.onclick = function (event) {
+            _this.handleOnMandelbrotButtonClickEvent(event);
+        };
     };
     GridView.prototype.handleOnMouseDownEvent = function (event) {
         this.mode = Mode_1.Mode.None;
@@ -131,6 +140,10 @@ var GridView = /** @class */ (function () {
     };
     GridView.prototype.handleOnPButtonClickEvent = function (event) {
         this.mode = Mode_1.Mode.P;
+    };
+    GridView.prototype.handleOnMandelbrotButtonClickEvent = function (event) {
+        this.showMandelbrot = !this.showMandelbrot;
+        this.updateMandelbrotVisibility();
     };
     GridView.prototype.handleOnIterChangeEvent = function () {
         this.triggerOnIterSelectedEvent();
@@ -169,6 +182,9 @@ var GridView = /** @class */ (function () {
     };
     GridView.prototype.updateIter = function () {
         this.iterContent.textContent = this.gridModel.iter.toString();
+    };
+    GridView.prototype.updateMandelbrotVisibility = function () {
+        this.mandelbrotCanvasWrapper.style.display = this.showMandelbrot ? "block" : "none";
     };
     GridView.prototype.drawAxis = function () {
         if (this.axisCanvas == null)
@@ -232,17 +248,37 @@ var GridView = /** @class */ (function () {
         this.axisCanvas.stroke();
         this.axisCanvas.lineWidth = 1;
     };
+    GridView.prototype.drawMandelbrot = function () {
+        if (this.mandelbrotCanvas == null)
+            return;
+        var imageData = this.mandelbrotCanvas.createImageData(this.width, this.height);
+        var buf = new ArrayBuffer(imageData.data.length);
+        var buf8 = new Uint8ClampedArray(buf);
+        var point = new Complex_1.Complex(0, 0);
+        for (var i = 0; i < this.height; i++) {
+            for (var j = 0; j < this.width; j++) {
+                var c = this.pixelToComplex(j, i);
+                if (this.converges(point, c, 150)) {
+                    buf8[(i * this.width + j) * 4 + 0] = 106;
+                    buf8[(i * this.width + j) * 4 + 1] = 114;
+                    buf8[(i * this.width + j) * 4 + 2] = 122;
+                    buf8[(i * this.width + j) * 4 + 3] = 255;
+                }
+            }
+        }
+        imageData.data.set(buf8);
+        this.mandelbrotCanvas.putImageData(imageData, 0, 0);
+    };
     GridView.prototype.drawJuliaSet = function () {
         if (this.fractalCanvas == null)
             return;
-        this.fractalCanvas.clearRect(0, 0, this.width, this.height);
         var imageData = this.fractalCanvas.createImageData(this.width, this.height);
         var buf = new ArrayBuffer(imageData.data.length);
         var buf8 = new Uint8ClampedArray(buf);
         for (var i = 0; i < this.height; i++) {
             for (var j = 0; j < this.width; j++) {
                 var point = this.pixelToComplex(j, i);
-                if (this.converges(point)) {
+                if (this.converges(point, this.gridModel.c, this.gridModel.iter)) {
                     buf8[(i * this.width + j) * 4 + 3] = 255;
                 }
             }
@@ -292,14 +328,14 @@ var GridView = /** @class */ (function () {
     GridView.prototype.pixelToComplex = function (x, y) {
         return new Complex_1.Complex((x - this.centerX) * this.scale, -(y - this.centerY) * this.scale);
     };
-    GridView.prototype.converges = function (point) {
-        var cx = this.gridModel.c.r;
-        var cy = this.gridModel.c.i;
+    GridView.prototype.converges = function (point, c, iter) {
+        var cx = c.r;
+        var cy = c.i;
         var escapeRadiusSquare = this.escapeRadius * this.escapeRadius;
         var x = point.r;
         var y = point.i;
         var xTmp = 0;
-        for (var i = 0; i < this.gridModel.iter; i++) {
+        for (var i = 0; i < iter; i++) {
             xTmp = x * x - y * y + cx;
             y = (x + x) * y + cy;
             x = xTmp;
@@ -319,6 +355,7 @@ var Grid_1 = require("./grid/Grid");
 var grid;
 var fractalCanvas;
 var axisCanvas;
+var mandelbrotCanvas;
 var pCanvas;
 var cContent;
 var cButton;
@@ -326,6 +363,7 @@ var pContent;
 var pButton;
 var iterContent;
 var iterSlider;
+var mandelbrotButton;
 window.onload = function () {
     setupHtmlElements();
     createGrid();
@@ -334,17 +372,21 @@ function setupHtmlElements() {
     fractalCanvas = document.getElementById("grid");
     axisCanvas = document.getElementById("axis");
     pCanvas = document.getElementById("p");
+    mandelbrotCanvas = document.getElementById("mandelbrot");
     cContent = document.getElementById("c-content");
     cButton = document.getElementById("c-button");
     pContent = document.getElementById("p-content");
     pButton = document.getElementById("p-button");
     iterContent = document.getElementById("iter-content");
     iterSlider = document.getElementById("iter-slider");
+    mandelbrotButton = document.getElementById("mandelbrot-button");
 }
 function createGrid() {
     if (!(fractalCanvas instanceof HTMLCanvasElement))
         return;
     if (!(axisCanvas instanceof HTMLCanvasElement))
+        return;
+    if (!(mandelbrotCanvas instanceof HTMLCanvasElement))
         return;
     if (!(pCanvas instanceof HTMLCanvasElement))
         return;
@@ -360,13 +402,17 @@ function createGrid() {
         return;
     if (pButton == null)
         return;
+    if (mandelbrotButton == null)
+        return;
     fractalCanvas.width = window.innerWidth;
     fractalCanvas.height = window.innerHeight;
     axisCanvas.width = window.innerWidth;
     axisCanvas.height = window.innerHeight;
     pCanvas.width = window.innerWidth;
     pCanvas.height = window.innerHeight;
-    grid = new Grid_1.Grid(fractalCanvas, axisCanvas, pCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider);
+    mandelbrotCanvas.width = window.innerWidth;
+    mandelbrotCanvas.height = window.innerHeight;
+    grid = new Grid_1.Grid(fractalCanvas, axisCanvas, pCanvas, mandelbrotCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, mandelbrotButton);
 }
 
 },{"./grid/Grid":1}],5:[function(require,module,exports){

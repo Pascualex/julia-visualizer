@@ -9,12 +9,15 @@ export class GridView {
   private fractalCanvas: CanvasRenderingContext2D | null;
   private axisCanvas: CanvasRenderingContext2D | null;
   private pCanvas: CanvasRenderingContext2D | null;
+  private mandelbrotCanvasWrapper: HTMLCanvasElement;
+  private mandelbrotCanvas: CanvasRenderingContext2D | null;
   private cContent: HTMLSpanElement;
   private cButton: HTMLElement;
   private pContent: HTMLSpanElement;
   private pButton: HTMLElement;
   private iterContent: HTMLSpanElement;
   private iterSlider: HTMLInputElement;
+  private mandelbrotButton: HTMLElement;
   private gridModel: GridModel;
 
   private width: number;
@@ -24,6 +27,7 @@ export class GridView {
   private scale: number;
 
   private mode: Mode;
+  private showMandelbrot: boolean;
 
   public oncselected: ((c: Complex) => any) | null;
   public onpselected: ((p: Complex) => any) | null;
@@ -33,17 +37,21 @@ export class GridView {
     fractalCanvas: HTMLCanvasElement,
     axisCanvas: HTMLCanvasElement,
     pCanvas: HTMLCanvasElement,
+    mandelbrotCanvas: HTMLCanvasElement,
     cContent: HTMLSpanElement,
     cButton: HTMLElement,
     pContent: HTMLSpanElement,
     pButton: HTMLElement,
     iterContent: HTMLSpanElement,
     iterSlider: HTMLInputElement,
+    mandelbrotButton: HTMLElement,
     gridModel: GridModel,
   ) {
     this.fractalCanvas = fractalCanvas.getContext("2d");
     this.axisCanvas = axisCanvas.getContext("2d");
     this.pCanvas = pCanvas.getContext("2d");
+    this.mandelbrotCanvasWrapper = mandelbrotCanvas;
+    this.mandelbrotCanvas = mandelbrotCanvas.getContext("2d");
     this.cContent = cContent;
     this.cButton = cButton;
     this.pContent = pContent;
@@ -51,6 +59,7 @@ export class GridView {
     this.iterContent = iterContent;
     this.iterSlider = iterSlider;
     this.gridModel = gridModel;
+    this.mandelbrotButton = mandelbrotButton;
 
     this.width = fractalCanvas.width;
     this.height = fractalCanvas.height;
@@ -65,7 +74,10 @@ export class GridView {
     this.oniterselected = null;
     this.setupEvents(fractalCanvas);
 
+    this.showMandelbrot = false;
+    this.updateMandelbrotVisibility();
     this.drawAxis();
+    this.drawMandelbrot();
     this.updateIter();
   }
 
@@ -85,6 +97,9 @@ export class GridView {
     this.iterSlider.oninput = () => {
       this.handleOnIterChangeEvent();
     };
+    this.mandelbrotButton.onclick = (event: MouseEvent) => {
+      this.handleOnMandelbrotButtonClickEvent(event);
+    };
   }
 
   private handleOnMouseDownEvent(event: MouseEvent): void {
@@ -102,6 +117,11 @@ export class GridView {
 
   private handleOnPButtonClickEvent(event: MouseEvent): void {
     this.mode = Mode.P;
+  }
+
+  private handleOnMandelbrotButtonClickEvent(event: MouseEvent): void {
+    this.showMandelbrot = !this.showMandelbrot;
+    this.updateMandelbrotVisibility();
   }
   
   private handleOnIterChangeEvent(): void {
@@ -147,6 +167,10 @@ export class GridView {
 
   public updateIter(): void {
     this.iterContent.textContent = this.gridModel.iter.toString();
+  }
+  
+  public updateMandelbrotVisibility(): void {
+    this.mandelbrotCanvasWrapper.style.display = this.showMandelbrot ? "block" : "none";
   }
 
   private drawAxis(): void {
@@ -215,10 +239,32 @@ export class GridView {
     this.axisCanvas.lineWidth = 1;
   }
 
+  public drawMandelbrot(): void {
+    if (this.mandelbrotCanvas == null) return;
+
+    const imageData = this.mandelbrotCanvas.createImageData(this.width, this.height);
+    const buf = new ArrayBuffer(imageData.data.length);
+    const buf8 = new Uint8ClampedArray(buf);
+
+    const point: Complex = new Complex(0, 0);
+    for (let i = 0; i < this.height; i++) {
+      for (let j = 0; j < this.width; j++) {
+        const c: Complex = this.pixelToComplex(j, i);
+        if (this.converges(point, c, 150)) {
+          buf8[(i * this.width + j) * 4 + 0] = 106;
+          buf8[(i * this.width + j) * 4 + 1] = 114;
+          buf8[(i * this.width + j) * 4 + 2] = 122;
+          buf8[(i * this.width + j) * 4 + 3] = 255;
+        }
+      }
+    }
+
+    imageData.data.set(buf8);
+    this.mandelbrotCanvas.putImageData(imageData, 0, 0);
+  }
+
   public drawJuliaSet(): void {
     if (this.fractalCanvas == null) return;
-
-    this.fractalCanvas.clearRect(0, 0, this.width, this.height);
 
     const imageData = this.fractalCanvas.createImageData(this.width, this.height);
     const buf = new ArrayBuffer(imageData.data.length);
@@ -227,7 +273,7 @@ export class GridView {
     for (let i = 0; i < this.height; i++) {
       for (let j = 0; j < this.width; j++) {
         const point: Complex = this.pixelToComplex(j, i);
-        if (this.converges(point)) {
+        if (this.converges(point, this.gridModel.c, this.gridModel.iter)) {
           buf8[(i * this.width + j) * 4 + 3] = 255;
         }
       }
@@ -287,16 +333,16 @@ export class GridView {
     return new Complex((x - this.centerX) * this.scale, -(y - this.centerY) * this.scale);
   }
 
-  private converges(point: Complex): boolean {
-    const cx: number = this.gridModel.c.r;
-    const cy: number = this.gridModel.c.i;
+  private converges(point: Complex, c: Complex, iter: number): boolean {
+    const cx: number = c.r;
+    const cy: number = c.i;
     const escapeRadiusSquare: number = this.escapeRadius * this.escapeRadius;
 
     let x: number = point.r;
     let y: number = point.i;
     let xTmp: number = 0;
 
-    for (let i = 0; i < this.gridModel.iter; i++) {
+    for (let i = 0; i < iter; i++) {
       xTmp = x * x - y * y + cx;
       y = (x + x) * y + cy;
       x = xTmp;

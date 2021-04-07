@@ -10,6 +10,7 @@
       <canvas id="p"></canvas>
       <canvas id="grid"></canvas>
       <canvas id="axis"></canvas>
+      <canvas id="mandelbrot"></canvas>
       <div id="menu">
         <div id="c-viewer">
           <span>C =&nbsp;</span>
@@ -17,10 +18,10 @@
         </div>
         <div id="c-button">Seleccionar nuevo C</div>
         <div id="p-viewer">
-          <span>P =&nbsp;</span>
+          <span>X</span><span class="my-sub">0</span><span>&nbsp;=&nbsp;</span>
           <span id="p-content">p-content</span>
         </div>
-        <div id="p-button">Seleccionar nuevo P</div>
+        <div id="p-button">Seleccionar nuevo X<span class="my-sub">0</span></div>
         <div id="iter-viewer">
           <span>Iteraciones =&nbsp;</span>
           <span id="iter-content">iter-content</span>
@@ -28,6 +29,7 @@
         <div>
           <input type="range" min="1" max="150" value="30" id="iter-slider">
         </div>
+        <div id="mandelbrot-button">Conjunto de Mandelbrot</div>
       </div>
     </div>
   </body>

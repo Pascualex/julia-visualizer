@@ -10,24 +10,28 @@ export class Grid {
     fractalCanvas: HTMLCanvasElement,
     axisCanvas: HTMLCanvasElement,
     pCanvas: HTMLCanvasElement,
+    mandelbrotCanvas: HTMLCanvasElement,
     cContent: HTMLSpanElement,
     cButton: HTMLElement,
     pContent: HTMLSpanElement,
     pButton: HTMLElement,
     iterContent: HTMLSpanElement,
     iterSlider: HTMLInputElement,
+    mandelbrotButton: HTMLElement,
   ) {
     this.gridModel = new GridModel();
     this.gridView = new GridView(
       fractalCanvas,
       axisCanvas,
       pCanvas,
+      mandelbrotCanvas,
       cContent,
       cButton,
       pContent,
       pButton,
       iterContent,
       iterSlider,
+      mandelbrotButton,
       this.gridModel,
     );
 
