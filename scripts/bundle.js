@@ -74,7 +74,7 @@ var Complex_1 = require("../utils/Complex");
 var Mode_1 = require("../utils/Mode");
 var GridView = /** @class */ (function () {
     function GridView(fractalCanvas, axisCanvas, pCanvas, mandelbrotCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, mandelbrotButton, gridModel) {
-        this.escapeRadius = 3;
+        this.escapeRadius = 2;
         this.imaginaryAxisHeight = 1.5;
         this.fractalCanvas = fractalCanvas.getContext("2d");
         this.axisCanvas = axisCanvas.getContext("2d");

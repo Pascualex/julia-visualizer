@@ -3,7 +3,7 @@ import { Complex } from "../utils/Complex";
 import { Mode } from "../utils/Mode";
 
 export class GridView {
-  private escapeRadius: number = 3;
+  private escapeRadius: number = 2;
   private imaginaryAxisHeight: number = 1.5;
 
   private fractalCanvas: CanvasRenderingContext2D | null;
