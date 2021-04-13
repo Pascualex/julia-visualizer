@@ -58,6 +58,7 @@ export class Grid {
   }
 
   private handleOnCSelectedEvent(c: Complex): void {
+    if (c.r == this.gridModel.c.r && c.i == this.gridModel.c.i) return;
     this.gridModel.c = c;
     this.gridView.updateC();
     this.gridView.drawJuliaSet();
@@ -66,12 +67,14 @@ export class Grid {
   }
 
   private handleOnPSelectedEvent(p: Complex): void {
+    if (p.r == this.gridModel.p.r && p.i == this.gridModel.p.i) return;
     this.gridModel.p = p;
     this.gridView.updateP();
     this.gridView.drawP();
   }
 
   private handleOnIterSelectedEvent(iter: number): void {
+    if (iter == this.gridModel.iter) return;
     this.gridModel.iter = iter;
     this.gridView.updateIter();
     this.gridView.drawJuliaSet();

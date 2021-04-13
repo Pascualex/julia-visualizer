@@ -30,6 +30,8 @@ var Grid = /** @class */ (function () {
         };
     };
     Grid.prototype.handleOnCSelectedEvent = function (c) {
+        if (c.r == this.gridModel.c.r && c.i == this.gridModel.c.i)
+            return;
         this.gridModel.c = c;
         this.gridView.updateC();
         this.gridView.drawJuliaSet();
@@ -37,11 +39,15 @@ var Grid = /** @class */ (function () {
         this.gridView.drawP();
     };
     Grid.prototype.handleOnPSelectedEvent = function (p) {
+        if (p.r == this.gridModel.p.r && p.i == this.gridModel.p.i)
+            return;
         this.gridModel.p = p;
         this.gridView.updateP();
         this.gridView.drawP();
     };
     Grid.prototype.handleOnIterSelectedEvent = function (iter) {
+        if (iter == this.gridModel.iter)
+            return;
         this.gridModel.iter = iter;
         this.gridView.updateIter();
         this.gridView.drawJuliaSet();
@@ -151,13 +157,13 @@ var GridView = /** @class */ (function () {
     GridView.prototype.triggerOnCSelectedEvent = function (event) {
         if (this.oncselected == null)
             return;
-        var c = this.pixelToComplex(event.x, event.y);
+        var c = this.pixelToComplex(event.x, event.y, 2);
         this.oncselected(c);
     };
     GridView.prototype.triggerOnPSelectedEvent = function (event) {
         if (this.onpselected == null)
             return;
-        var p = this.pixelToComplex(event.x, event.y);
+        var p = this.pixelToComplex(event.x, event.y, 2);
         this.onpselected(p);
     };
     GridView.prototype.triggerOnIterSelectedEvent = function () {
@@ -171,14 +177,14 @@ var GridView = /** @class */ (function () {
         var i = c.i;
         var s = i < 0 ? " - " : " + ";
         i = Math.abs(i);
-        this.cContent.textContent = c.r.toFixed(4) + s + i.toFixed(4) + "i";
+        this.cContent.textContent = c.r.toFixed(2) + s + i.toFixed(2) + "i";
     };
     GridView.prototype.updateP = function () {
         var p = this.gridModel.p;
         var i = p.i;
         var s = i < 0 ? " - " : " + ";
         i = Math.abs(i);
-        this.pContent.textContent = p.r.toFixed(4) + s + i.toFixed(4) + "i";
+        this.pContent.textContent = p.r.toFixed(2) + s + i.toFixed(2) + "i";
     };
     GridView.prototype.updateIter = function () {
         this.iterContent.textContent = this.gridModel.iter.toString();
@@ -257,7 +263,7 @@ var GridView = /** @class */ (function () {
         var point = new Complex_1.Complex(0, 0);
         for (var i = 0; i < this.height; i++) {
             for (var j = 0; j < this.width; j++) {
-                var c = this.pixelToComplex(j, i);
+                var c = this.pixelToComplex(j, i, null);
                 if (this.converges(point, c, 150)) {
                     buf8[(i * this.width + j) * 4 + 0] = 106;
                     buf8[(i * this.width + j) * 4 + 1] = 114;
@@ -277,7 +283,7 @@ var GridView = /** @class */ (function () {
         var buf8 = new Uint8ClampedArray(buf);
         for (var i = 0; i < this.height; i++) {
             for (var j = 0; j < this.width; j++) {
-                var point = this.pixelToComplex(j, i);
+                var point = this.pixelToComplex(j, i, null);
                 if (this.converges(point, this.gridModel.c, this.gridModel.iter)) {
                     buf8[(i * this.width + j) * 4 + 3] = 255;
                 }
@@ -325,8 +331,16 @@ var GridView = /** @class */ (function () {
                 this.pCanvas.moveTo(x, y);
         }
     };
-    GridView.prototype.pixelToComplex = function (x, y) {
-        return new Complex_1.Complex((x - this.centerX) * this.scale, -(y - this.centerY) * this.scale);
+    GridView.prototype.pixelToComplex = function (x, y, decimals) {
+        var r = (x - this.centerX) * this.scale;
+        var i = -(y - this.centerY) * this.scale;
+        return new Complex_1.Complex(this.round(r, decimals), this.round(i, decimals));
+    };
+    GridView.prototype.round = function (x, decimals) {
+        if (decimals == null)
+            return x;
+        var pow10 = Math.pow(10, decimals);
+        return Math.round((x + Number.EPSILON) * pow10) / pow10;
     };
     GridView.prototype.converges = function (point, c, iter) {
         var cx = c.r;

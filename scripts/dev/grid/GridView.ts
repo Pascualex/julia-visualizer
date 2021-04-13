@@ -131,14 +131,14 @@ export class GridView {
   private triggerOnCSelectedEvent(event: MouseEvent): void {
     if (this.oncselected == null) return;
 
-    const c: Complex = this.pixelToComplex(event.x, event.y);
+    const c: Complex = this.pixelToComplex(event.x, event.y, 2);
     this.oncselected(c);
   }
 
   private triggerOnPSelectedEvent(event: MouseEvent): void {
     if (this.onpselected == null) return;
 
-    const p: Complex = this.pixelToComplex(event.x, event.y);
+    const p: Complex = this.pixelToComplex(event.x, event.y, 2);
     this.onpselected(p);
   }
   
@@ -154,7 +154,7 @@ export class GridView {
     let i: number = c.i;
     const s: string = i < 0 ? " - " : " + ";
     i = Math.abs(i);
-    this.cContent.textContent = c.r.toFixed(4) + s + i.toFixed(4) + "i";
+    this.cContent.textContent = c.r.toFixed(2) + s + i.toFixed(2) + "i";
   }
 
   public updateP(): void {
@@ -162,7 +162,7 @@ export class GridView {
     let i: number = p.i;
     const s: string = i < 0 ? " - " : " + ";
     i = Math.abs(i);
-    this.pContent.textContent = p.r.toFixed(4) + s + i.toFixed(4) + "i";
+    this.pContent.textContent = p.r.toFixed(2) + s + i.toFixed(2) + "i";
   }
 
   public updateIter(): void {
@@ -249,7 +249,7 @@ export class GridView {
     const point: Complex = new Complex(0, 0);
     for (let i = 0; i < this.height; i++) {
       for (let j = 0; j < this.width; j++) {
-        const c: Complex = this.pixelToComplex(j, i);
+        const c: Complex = this.pixelToComplex(j, i, null);
         if (this.converges(point, c, 150)) {
           buf8[(i * this.width + j) * 4 + 0] = 106;
           buf8[(i * this.width + j) * 4 + 1] = 114;
@@ -272,7 +272,7 @@ export class GridView {
 
     for (let i = 0; i < this.height; i++) {
       for (let j = 0; j < this.width; j++) {
-        const point: Complex = this.pixelToComplex(j, i);
+        const point: Complex = this.pixelToComplex(j, i, null);
         if (this.converges(point, this.gridModel.c, this.gridModel.iter)) {
           buf8[(i * this.width + j) * 4 + 3] = 255;
         }
@@ -329,8 +329,16 @@ export class GridView {
     }
   }
 
-  private pixelToComplex(x: number, y: number): Complex {
-    return new Complex((x - this.centerX) * this.scale, -(y - this.centerY) * this.scale);
+  private pixelToComplex(x: number, y: number, decimals: number | null): Complex {
+    const r: number = (x - this.centerX) * this.scale;
+    const i: number = -(y - this.centerY) * this.scale;
+    return new Complex(this.round(r, decimals), this.round(i, decimals));
+  }
+
+  private round(x: number, decimals: number | null): number {
+    if (decimals == null) return x;
+    const pow10: number = Math.pow(10, decimals);
+    return Math.round((x + Number.EPSILON) * pow10) / pow10;
   }
 
   private converges(point: Complex, c: Complex, iter: number): boolean {
