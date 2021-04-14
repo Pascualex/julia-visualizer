@@ -10,7 +10,7 @@ var Grid = /** @class */ (function () {
         this.gridModel = new GridModel_1.GridModel();
         this.gridView = new GridView_1.GridView(fractalCanvas, axisCanvas, pCanvas, mandelbrotCanvas, cContent, cButton, pContent, pButton, iterContent, iterSlider, mandelbrotButton, this.gridModel);
         this.setupEvents();
-        this.gridModel.c = new Complex_1.Complex(0, -0.6);
+        this.gridModel.c = new Complex_1.Complex(0, 0);
         this.gridView.updateC();
         this.gridView.updateP();
         this.gridView.updateIter();

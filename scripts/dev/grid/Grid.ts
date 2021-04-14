@@ -37,7 +37,7 @@ export class Grid {
 
     this.setupEvents();
 
-    this.gridModel.c = new Complex(0, -0.6);
+    this.gridModel.c = new Complex(0, 0);
     this.gridView.updateC();
     this.gridView.updateP();
     this.gridView.updateIter();
